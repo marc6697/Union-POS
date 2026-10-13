@@ -9,28 +9,43 @@
   }
 
   body {
-    @apply bg-slate-50 text-slate-900 antialiased selection:bg-indigo-500 selection:text-white;
+    @apply bg-slate-50 text-slate-900 antialiased;
     -webkit-tap-highlight-color: transparent;
-    user-select: none;
     overscroll-behavior-y: none;
   }
 }
 
+/* Hide scrollbar but keep scroll functionality */
+.scrollbar-none {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+
+/* Tailwind v4 animation utilities */
+@keyframes slide-in-from-bottom-4 {
+  from { transform: translateY(16px); opacity: 0; }
+  to   { transform: translateY(0);    opacity: 1; }
+}
+.animate-in {
+  animation-duration: 200ms;
+  animation-fill-mode: both;
+}
+.slide-in-from-bottom-4 {
+  animation-name: slide-in-from-bottom-4;
+}
+
 /* Print thermal receipt 58mm / 80mm compatibility */
 @media print {
-  body * {
-    visibility: hidden;
-  }
-  #thermal-receipt, #thermal-receipt * {
-    visibility: visible;
-  }
+  body * { visibility: hidden; }
+  #thermal-receipt, #thermal-receipt * { visibility: visible; }
   #thermal-receipt {
     position: absolute;
-    left: 0;
-    top: 0;
+    left: 0; top: 0;
     width: 58mm;
-    margin: 0;
-    padding: 2mm;
+    margin: 0; padding: 2mm;
     font-family: monospace;
     font-size: 11px;
     line-height: 1.2;

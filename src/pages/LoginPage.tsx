@@ -36,8 +36,8 @@ export default function LoginPage() {
     setFormError('')
     const credentials = {
       superadmin: { email: 'superadmin@unionpos.com', password: 'admin123' },
-      owner: { email: 'owner@demo.com', password: 'owner123' },
-      kasir: { email: 'kasir@demo.com', password: 'kasir123' },
+      owner: { email: 'owner@unionpos.com', password: '123456' },
+      kasir: { email: 'kasir@unionpos.com', password: '123456' },
     }
     setEmail(credentials[type].email)
     setPassword(credentials[type].password)

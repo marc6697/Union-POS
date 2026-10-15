@@ -3,28 +3,67 @@ import type { Customer, CustomerFormData } from '../../types'
 
 const TABLE = 'customers'
 
-export async function fetchCustomersByBusiness(businessId: string): Promise<Customer[]> {
-  const { data, error } = await supabase
+export interface CustomerPaginationResult {
+  data: Customer[]
+  count: number
+}
+
+export async function fetchCustomersByBusiness(
+  businessId: string,
+  options?: {
+    page?: number
+    pageSize?: number
+    search?: string
+  },
+): Promise<CustomerPaginationResult> {
+  const page = options?.page ?? 1
+  const pageSize = options?.pageSize ?? 10
+  const search = options?.search?.trim()
+
+  const from = (page - 1) * pageSize
+  const to = from + pageSize - 1
+
+  let query = supabase
     .from(TABLE)
-    .select('*, creator:profiles!customers_created_by_fkey(id, full_name, role)')
+    .select('*, creator:profiles!customers_created_by_fkey(id, full_name, role)', { count: 'exact' })
     .eq('business_id', businessId)
     .is('deleted_at', null)
     .order('created_at', { ascending: false })
+    .range(from, to)
+
+  if (search) {
+    query = query.or(`name.ilike.%${search}%,phone_number.ilike.%${search}%,email.ilike.%${search}%,address.ilike.%${search}%`)
+  }
+
+  const { data, count, error } = await query
 
   if (error) {
-    // Fallback jika foreign key alias belum ter-cache
-    const { data: fallbackData, error: fallbackError } = await supabase
+    // Fallback jika foreign key join alias belum terdeteksi
+    let fallbackQuery = supabase
       .from(TABLE)
-      .select('*')
+      .select('*', { count: 'exact' })
       .eq('business_id', businessId)
       .is('deleted_at', null)
       .order('created_at', { ascending: false })
+      .range(from, to)
 
+    if (search) {
+      fallbackQuery = fallbackQuery.or(`name.ilike.%${search}%,phone_number.ilike.%${search}%,email.ilike.%${search}%,address.ilike.%${search}%`)
+    }
+
+    const { data: fallbackData, count: fallbackCount, error: fallbackError } = await fallbackQuery
     if (fallbackError) throw new Error(fallbackError.message)
-    return (fallbackData ?? []) as Customer[]
+
+    return {
+      data: (fallbackData ?? []) as Customer[],
+      count: fallbackCount ?? 0,
+    }
   }
 
-  return (data ?? []) as Customer[]
+  return {
+    data: (data ?? []) as Customer[],
+    count: count ?? 0,
+  }
 }
 
 export async function createCustomer(

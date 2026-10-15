@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import {
   Users,
   UserPlus,
@@ -10,6 +10,8 @@ import {
   MapPin,
   FileText,
   AlertCircle,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react'
 import POSHeader from '../../components/POSHeader'
 import NavigationDrawer from '../../components/NavigationDrawer'
@@ -253,10 +255,23 @@ export default function CustomersPage() {
   const businessId = user?.business_id
 
   const [customers, setCustomers] = useState<Customer[]>([])
+  const [totalCount, setTotalCount] = useState(0)
+  const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState(10)
   const [isLoading, setIsLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [search, setSearch] = useState('')
+  const [debouncedSearch, setDebouncedSearch] = useState('')
+
+  // Debounce search input agar tidak membebani database
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(search)
+      setPage(1) // Reset ke page 1 saat kata kunci pencarian berubah
+    }, 350)
+    return () => clearTimeout(timer)
+  }, [search])
 
   // Modals state
   const [formModal, setFormModal] = useState<{
@@ -280,7 +295,7 @@ export default function CustomersPage() {
   })
   const [isDeleting, setIsDeleting] = useState(false)
 
-  // ── Fetch Customers ─────────────────────────────────────────────────────────
+  // ── Fetch Customers with Pagination ─────────────────────────────────────────
   const loadCustomers = useCallback(async () => {
     if (!businessId) {
       setIsLoading(false)
@@ -289,8 +304,13 @@ export default function CustomersPage() {
     setIsLoading(true)
     setLoadError(null)
     try {
-      const data = await fetchCustomersByBusiness(businessId)
-      setCustomers(data)
+      const res = await fetchCustomersByBusiness(businessId, {
+        page,
+        pageSize,
+        search: debouncedSearch,
+      })
+      setCustomers(res.data)
+      setTotalCount(res.count)
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Gagal memuat data pelanggan'
       setLoadError(msg)
@@ -298,25 +318,13 @@ export default function CustomersPage() {
     } finally {
       setIsLoading(false)
     }
-  }, [businessId])
+  }, [businessId, page, pageSize, debouncedSearch])
 
   useEffect(() => {
     loadCustomers()
   }, [loadCustomers])
 
-  // ── Search & Filter ─────────────────────────────────────────────────────────
-  const filteredCustomers = useMemo(() => {
-    const q = search.trim().toLowerCase()
-    if (!q) return customers
-
-    return customers.filter((c) => {
-      const matchName = c.name.toLowerCase().includes(q)
-      const matchPhone = c.phone_number.toLowerCase().includes(q)
-      const matchEmail = (c.email || '').toLowerCase().includes(q)
-      const matchAddress = (c.address || '').toLowerCase().includes(q)
-      return matchName || matchPhone || matchEmail || matchAddress
-    })
-  }, [customers, search])
+  const totalPages = Math.max(1, Math.ceil(totalCount / pageSize))
 
   // ── Modal Handlers ──────────────────────────────────────────────────────────
   const handleOpenCreate = () => {
@@ -439,8 +447,25 @@ export default function CustomersPage() {
               leftIcon={<Search size={16} />}
             />
           </div>
-          <div className="text-xs text-slate-500 ml-auto hidden sm:block">
-            Total: <span className="font-semibold text-slate-800">{filteredCustomers.length}</span> pelanggan
+          <div className="text-xs text-slate-500 ml-auto hidden sm:flex items-center gap-3">
+            <span>
+              Total: <strong className="text-slate-800">{totalCount}</strong> pelanggan
+            </span>
+            <div className="flex items-center gap-1.5 border-l border-slate-200 pl-3">
+              <span className="text-slate-400">Tampilkan:</span>
+              <select
+                value={pageSize}
+                onChange={(e) => {
+                  setPageSize(Number(e.target.value))
+                  setPage(1)
+                }}
+                className="text-xs font-semibold bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 text-slate-700 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              >
+                <option value={10}>10</option>
+                <option value={25}>25</option>
+                <option value={50}>50</option>
+              </select>
+            </div>
           </div>
         </div>
 
@@ -466,7 +491,7 @@ export default function CustomersPage() {
         )}
 
         {/* Empty State: Belum ada pelanggan sama sekali */}
-        {!isLoading && !loadError && customers.length === 0 && (
+        {!isLoading && !loadError && totalCount === 0 && !debouncedSearch && (
           <div className="bg-white rounded-2xl border border-slate-200 p-12 text-center shadow-xs">
             <div className="w-14 h-14 bg-indigo-50 text-indigo-600 rounded-2xl mx-auto flex items-center justify-center mb-3">
               <Users size={28} />
@@ -482,12 +507,12 @@ export default function CustomersPage() {
         )}
 
         {/* Empty State: Hasil filter/search kosong */}
-        {!isLoading && !loadError && customers.length > 0 && filteredCustomers.length === 0 && (
+        {!isLoading && !loadError && totalCount === 0 && debouncedSearch && (
           <div className="bg-white rounded-2xl border border-slate-200 p-10 text-center shadow-xs">
             <Search size={32} className="text-slate-300 mx-auto mb-2" />
             <h3 className="text-sm font-semibold text-slate-700">Pelanggan Tidak Ditemukan</h3>
             <p className="text-xs text-slate-400 mt-1">
-              Tidak ada data pelanggan yang cocok dengan kata kunci "{search}".
+              Tidak ada data pelanggan yang cocok dengan kata kunci "{debouncedSearch}".
             </p>
             <Button
               variant="secondary"
@@ -501,7 +526,7 @@ export default function CustomersPage() {
         )}
 
         {/* List Content: Desktop Table & Mobile Cards */}
-        {!isLoading && !loadError && filteredCustomers.length > 0 && (
+        {!isLoading && !loadError && customers.length > 0 && (
           <>
             {/* Desktop Table View */}
             <div className="hidden md:block bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
@@ -516,7 +541,7 @@ export default function CustomersPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {filteredCustomers.map((customer) => (
+                  {customers.map((customer) => (
                     <tr key={customer.id} className="hover:bg-slate-50/60 transition-colors">
                       {/* Nama Pelanggan */}
                       <td className="py-3.5 px-4">
@@ -530,6 +555,7 @@ export default function CustomersPage() {
                             </span>
                             <span className="text-xs text-slate-400">
                               Terdaftar: {new Date(customer.created_at).toLocaleDateString('id-ID')}
+                              {customer.creator?.full_name ? ` • oleh ${customer.creator.full_name}` : ''}
                             </span>
                           </div>
                         </div>
@@ -604,7 +630,7 @@ export default function CustomersPage() {
 
             {/* Mobile / Tablet Cards View */}
             <div className="grid grid-cols-1 gap-3 md:hidden">
-              {filteredCustomers.map((customer) => (
+              {customers.map((customer) => (
                 <div
                   key={customer.id}
                   className="bg-white rounded-2xl border border-slate-200 p-4 shadow-xs space-y-3"
@@ -618,6 +644,7 @@ export default function CustomersPage() {
                         <h3 className="font-semibold text-slate-900 text-sm">{customer.name}</h3>
                         <span className="text-xs text-slate-400">
                           {new Date(customer.created_at).toLocaleDateString('id-ID')}
+                          {customer.creator?.full_name ? ` • oleh ${customer.creator.full_name}` : ''}
                         </span>
                       </div>
                     </div>
@@ -674,6 +701,48 @@ export default function CustomersPage() {
                 </div>
               ))}
             </div>
+
+            {/* Pagination Controls */}
+            {totalPages > 1 && (
+              <div className="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-3">
+                <span className="text-xs text-slate-500">
+                  Menampilkan{' '}
+                  <strong className="text-slate-800">
+                    {Math.min((page - 1) * pageSize + 1, totalCount)} -{' '}
+                    {Math.min(page * pageSize, totalCount)}
+                  </strong>{' '}
+                  dari <strong className="text-slate-800">{totalCount}</strong> pelanggan
+                </span>
+
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    disabled={page <= 1}
+                    onClick={() => setPage((prev) => Math.max(1, prev - 1))}
+                    leftIcon={<ChevronLeft size={15} />}
+                  >
+                    Sebelumnya
+                  </Button>
+
+                  <div className="flex items-center gap-1 px-2">
+                    <span className="text-xs font-semibold text-slate-700">
+                      Halaman {page} dari {totalPages}
+                    </span>
+                  </div>
+
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    disabled={page >= totalPages}
+                    onClick={() => setPage((prev) => Math.min(totalPages, prev + 1))}
+                    rightIcon={<ChevronRight size={15} />}
+                  >
+                    Selanjutnya
+                  </Button>
+                </div>
+              </div>
+            )}
           </>
         )}
       </main>

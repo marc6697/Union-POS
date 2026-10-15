@@ -7,6 +7,8 @@ import {
   Package,
   Wrench,
   AlertCircle,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react'
 import { useAuthStore } from '../../store/authStore'
 import Button from '../../components/ui/Button'
@@ -433,9 +435,16 @@ export default function ProductsPage() {
   const [loadError, setLoadError] = useState<string | null>(null)
   const [isMenuOpen, setIsMenuOpen] = useState(false)
 
-  // Filter & Search
+  // Filter, Search, and Pagination
   const [search, setSearch] = useState('')
   const [typeFilter, setTypeFilter] = useState<'all' | ItemType>('all')
+  const [currentPage, setCurrentPage] = useState(1)
+  const [itemsPerPage, setItemsPerPage] = useState(10)
+
+  // Reset page ke 1 jika filter atau search berubah
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [search, typeFilter, itemsPerPage])
 
   // Modals state
   const [formModal, setFormModal] = useState<{
@@ -499,6 +508,13 @@ export default function ProductsPage() {
       return matchType && matchSearch
     })
   }, [products, search, typeFilter])
+
+  // ── Pagination Calculation ──────────────────────────────────────────────────
+  const totalPages = Math.max(1, Math.ceil(filteredProducts.length / itemsPerPage))
+  const paginatedProducts = useMemo(() => {
+    const start = (currentPage - 1) * itemsPerPage
+    return filteredProducts.slice(start, start + itemsPerPage)
+  }, [filteredProducts, currentPage, itemsPerPage])
 
   // ── Handlers ────────────────────────────────────────────────────────────────
   const handleOpenCreate = () => {
@@ -719,7 +735,7 @@ export default function ProductsPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
-                    {filteredProducts.map((p) => (
+                    {paginatedProducts.map((p) => (
                       <tr key={p.id} className="hover:bg-slate-50/60 transition-colors">
                         {/* Item & Info */}
                         <td className="py-3.5 px-4">
@@ -822,6 +838,89 @@ export default function ProductsPage() {
                     ))}
                   </tbody>
                 </table>
+              </div>
+            )}
+
+            {/* ── Pagination Controls Footer ─────────────────────────────────── */}
+            {filteredProducts.length > 0 && (
+              <div className="px-4 py-3 border-t border-slate-200 bg-white flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-600">
+                <div className="flex items-center gap-2">
+                  <span>Baris per halaman:</span>
+                  <select
+                    value={itemsPerPage}
+                    onChange={(e) => setItemsPerPage(Number(e.target.value))}
+                    className="border border-slate-200 rounded-lg px-2 py-1 bg-white text-slate-700 font-medium focus:outline-none focus:border-indigo-500"
+                  >
+                    <option value={10}>10</option>
+                    <option value={20}>20</option>
+                    <option value={50}>50</option>
+                  </select>
+                  <span className="text-slate-400">|</span>
+                  <span>
+                    Menampilkan{' '}
+                    <strong className="text-slate-900">
+                      {Math.min((currentPage - 1) * itemsPerPage + 1, filteredProducts.length)}
+                    </strong>
+                    -
+                    <strong className="text-slate-900">
+                      {Math.min(currentPage * itemsPerPage, filteredProducts.length)}
+                    </strong>{' '}
+                    dari <strong className="text-slate-900">{filteredProducts.length}</strong> item
+                  </span>
+                </div>
+
+                {totalPages > 1 && (
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                      disabled={currentPage === 1}
+                      className="p-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 text-slate-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                      aria-label="Halaman sebelumnya"
+                    >
+                      <ChevronLeft size={16} />
+                    </button>
+
+                    <div className="flex items-center gap-1 px-1">
+                      {Array.from({ length: totalPages }, (_, i) => i + 1)
+                        .filter((page) => {
+                          // Batasi jumlah tombol halaman agar rapi (halaman 1, halaman terakhir, dan sekitar current)
+                          return (
+                            page === 1 ||
+                            page === totalPages ||
+                            Math.abs(page - currentPage) <= 1
+                          )
+                        })
+                        .map((page, idx, arr) => {
+                          const prev = arr[idx - 1]
+                          const hasGap = prev && page - prev > 1
+                          return (
+                            <span key={page} className="flex items-center gap-1">
+                              {hasGap && <span className="text-slate-300 px-0.5">...</span>}
+                              <button
+                                onClick={() => setCurrentPage(page)}
+                                className={`w-7 h-7 rounded-lg text-xs font-medium transition-colors ${
+                                  currentPage === page
+                                    ? 'bg-indigo-600 text-white font-semibold'
+                                    : 'border border-slate-200 text-slate-600 hover:bg-slate-50'
+                                }`}
+                              >
+                                {page}
+                              </button>
+                            </span>
+                          )
+                        })}
+                    </div>
+
+                    <button
+                      onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                      disabled={currentPage === totalPages}
+                      className="p-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 text-slate-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                      aria-label="Halaman berikutnya"
+                    >
+                      <ChevronRight size={16} />
+                    </button>
+                  </div>
+                )}
               </div>
             )}
           </div>

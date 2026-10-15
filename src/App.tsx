@@ -4,6 +4,11 @@ import LoginPage from './pages/LoginPage'
 import AdminDashboard from './pages/admin/AdminDashboard'
 import POSPage from './pages/pos/POSPage'
 import ProductsPage from './pages/pos/ProductsPage'
+import ReportsPage from './pages/pos/ReportsPage'
+import CustomersPage from './pages/pos/CustomersPage'
+import StaffPage from './pages/pos/StaffPage'
+import CommissionsPage from './pages/pos/CommissionsPage'
+import SettingsPage from './pages/pos/SettingsPage'
 import ProtectedRoute from './router/ProtectedRoute'
 
 export default function App() {
@@ -31,6 +36,11 @@ export default function App() {
         <Route element={<ProtectedRoute allowedRoles={['owner', 'kasir']} />}>
           <Route path="/pos" element={<POSPage />} />
           <Route path="/pos/products" element={<ProductsPage />} />
+          <Route path="/pos/reports" element={<ReportsPage />} />
+          <Route path="/pos/customers" element={<CustomersPage />} />
+          <Route path="/pos/staff" element={<StaffPage />} />
+          <Route path="/pos/commissions" element={<CommissionsPage />} />
+          <Route path="/pos/settings" element={<SettingsPage />} />
         </Route>
 
         {/* Default redirect to login */}

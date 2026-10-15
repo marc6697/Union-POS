@@ -113,3 +113,35 @@ export interface Transaction {
   kasir_id: string
   business_id: string
 }
+
+// ─── Customer Types ──────────────────────────────────────────────────────────
+
+export interface Customer {
+  id: string
+  business_id: string
+  created_by?: string | null
+  creator?: {
+    id: string
+    full_name: string
+    role: string
+  } | null
+  name: string
+  phone_number: string
+  email?: string | null
+  address?: string | null
+  notes?: string | null
+  is_active: boolean
+  deleted_at?: string | null
+  created_at: string
+  updated_at: string
+}
+
+export type CustomerFormData = {
+  name: string
+  phone_number: string
+  email: string
+  address: string
+  notes: string
+  is_active: boolean
+}
+

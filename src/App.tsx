@@ -3,6 +3,7 @@ import { Toaster } from 'sonner'
 import LoginPage from './pages/LoginPage'
 import AdminDashboard from './pages/admin/AdminDashboard'
 import POSPage from './pages/pos/POSPage'
+import ProductsPage from './pages/pos/ProductsPage'
 import ProtectedRoute from './router/ProtectedRoute'
 
 export default function App() {
@@ -29,6 +30,7 @@ export default function App() {
         {/* Owner & Kasir */}
         <Route element={<ProtectedRoute allowedRoles={['owner', 'kasir']} />}>
           <Route path="/pos" element={<POSPage />} />
+          <Route path="/pos/products" element={<ProductsPage />} />
         </Route>
 
         {/* Default redirect to login */}

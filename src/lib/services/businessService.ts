@@ -59,6 +59,16 @@ export async function fetchBusinesses(): Promise<Business[]> {
   return (data ?? []) as Business[]
 }
 
+export async function fetchBusinessById(id: string): Promise<Business | null> {
+  const { data, error } = await supabase
+    .from(TABLE)
+    .select('*')
+    .eq('id', id)
+    .maybeSingle()
+  if (error) throw new Error(error.message)
+  return data as Business | null
+}
+
 export function createBusiness(payload: BusinessFormData): Promise<Business> {
   return callFunction<Business>({ action: 'create', ...payload })
 }

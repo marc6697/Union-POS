@@ -8,6 +8,7 @@ export interface UserProfile {
   full_name: string
   role: UserRole
   business_id?: string // null for superadmin
+  business_name?: string
   avatar_url?: string
 }
 
@@ -47,6 +48,44 @@ export type BusinessFormData = Omit<Business, 'id' | 'created_at' | 'updated_at'
 
 // ─── POS / Transaction Types ──────────────────────────────────────────────────
 
+export type ItemType = 'product' | 'service'
+
+export interface ProductItem {
+  id: string
+  business_id: string
+  category_id?: string | null
+  name: string
+  type: ItemType
+  sku?: string | null
+  barcode?: string | null
+  brand?: string | null
+  unit?: string | null
+  cost_price: number
+  selling_price: number
+  track_stock: boolean
+  stock: number
+  has_commission: boolean
+  is_active: boolean
+  deleted_at?: string | null
+  created_at: string
+  updated_at: string
+}
+
+export type ProductFormData = {
+  name: string
+  type: ItemType
+  sku: string
+  barcode: string
+  brand: string
+  unit: string
+  cost_price: number
+  selling_price: number
+  track_stock: boolean
+  stock: number
+  has_commission: boolean
+  is_active: boolean
+}
+
 export interface Product {
   id: string
   name: string
@@ -57,7 +96,7 @@ export interface Product {
 }
 
 export interface CartItem {
-  product: Product
+  product: ProductItem
   quantity: number
 }
 

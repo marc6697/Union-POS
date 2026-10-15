@@ -48,13 +48,14 @@ export const useAuthStore = create<AuthState>()(
           if (profile.role !== 'superadmin') {
             const { data: business } = await supabase
               .from('businesses')
-              .select('status, deleted_at')
+              .select('business_name, status, deleted_at')
               .eq('id', profile.business_id)
               .single()
             if (!business || business.deleted_at || business.status !== 'active') {
               await supabase.auth.signOut()
               throw new Error('Akun bisnis tidak aktif. Hubungi administrator.')
             }
+            profile.business_name = business.business_name
           }
 
           set({ user: profile, isLoading: false })
@@ -69,9 +70,6 @@ export const useAuthStore = create<AuthState>()(
           })
           return null
         }
-
-        set({ error: 'Email atau password salah.', isLoading: false })
-        return null
       },
 
       logout: () => {

@@ -31,17 +31,17 @@ export default function LoginPage() {
     }
   }
 
-  const fillDemo = (type: 'superadmin' | 'owner' | 'kasir') => {
-    clearError()
-    setFormError('')
-    const credentials = {
-      superadmin: { email: 'superadmin@unionpos.com', password: 'admin123' },
-      owner: { email: 'owner@unionpos.com', password: '123456' },
-      kasir: { email: 'kasir@unionpos.com', password: '123456' },
-    }
-    setEmail(credentials[type].email)
-    setPassword(credentials[type].password)
-  }
+  // const fillDemo = (type: 'superadmin' | 'owner' | 'kasir') => {
+  //   clearError()
+  //   setFormError('')
+  //   const credentials = {
+  //     superadmin: { email: 'superadmin@unionpos.com', password: 'admin123' },
+  //     owner: { email: 'owner@unionpos.com', password: '123456' },
+  //     kasir: { email: 'kasir@unionpos.com', password: '123456' },
+  //   }
+  //   setEmail(credentials[type].email)
+  //   setPassword(credentials[type].password)
+  // }
 
   const displayError = formError || error
 
@@ -122,7 +122,7 @@ export default function LoginPage() {
         </div>
 
         {/* Demo credentials */}
-        <div className="mt-4 bg-white/10 backdrop-blur rounded-2xl p-4">
+        {/* <div className="mt-4 bg-white/10 backdrop-blur rounded-2xl p-4">
           <p className="text-xs text-slate-400 font-medium mb-3 text-center uppercase tracking-wider">
             Demo Credentials
           </p>
@@ -148,7 +148,7 @@ export default function LoginPage() {
           <p className="text-xs text-slate-500 mt-2.5 text-center">
             Klik role di atas untuk mengisi kredensial demo
           </p>
-        </div>
+        </div> */}
       </div>
 
       <p className="relative mt-8 text-xs text-slate-600">

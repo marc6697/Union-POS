@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import {
   Building2,
   Plus,
@@ -16,53 +16,38 @@ import {
 import { useAuthStore } from '../../store/authStore'
 import Button from '../../components/ui/Button'
 import Input from '../../components/ui/Input'
+import Select from '../../components/ui/Select'
 import Modal from '../../components/ui/Modal'
 import Badge, { StatusBadge } from '../../components/ui/Badge'
+import { BUSINESS_TYPES } from '../../types'
 import type { Business, BusinessFormData, BusinessStatus } from '../../types'
-import { generateId, formatDate } from '../../lib/utils'
+import { formatDate } from '../../lib/utils'
+import {
+  fetchBusinesses,
+  createBusiness,
+  updateBusiness,
+  toggleBusinessStatus,
+  deleteBusiness,
+} from '../../lib/services/businessService'
 import { toast } from 'sonner'
 import { useNavigate } from 'react-router-dom'
 
-// ─── Mock data (replace with Supabase queries) ────────────────────────────────
-const INITIAL_BUSINESSES: Business[] = [
-  {
-    id: 'biz-001',
-    business_name: 'Warung Makan Bu Sari',
-    owner_name: 'Budi Santoso',
-    owner_phone: '081234567890',
-    owner_email: 'owner@demo.com',
-    status: 'active',
-    created_at: '2025-01-15T08:00:00Z',
-    updated_at: '2025-01-15T08:00:00Z',
-  },
-  {
-    id: 'biz-002',
-    business_name: 'Toko Kelontong Maju',
-    owner_name: 'Dewi Rahayu',
-    owner_phone: '087654321098',
-    owner_email: 'dewi@demo.com',
-    status: 'active',
-    created_at: '2025-02-10T09:00:00Z',
-    updated_at: '2025-03-01T10:00:00Z',
-  },
-  {
-    id: 'biz-003',
-    business_name: 'Kafe Senja',
-    owner_name: 'Ahmad Fauzi',
-    owner_phone: '089876543210',
-    owner_email: 'ahmad@demo.com',
-    status: 'inactive',
-    created_at: '2025-03-05T07:30:00Z',
-    updated_at: '2025-03-05T07:30:00Z',
-  },
-]
-
 const EMPTY_FORM: BusinessFormData = {
   business_name: '',
+  business_type: '' as BusinessFormData['business_type'],
   owner_name: '',
   owner_phone: '',
   owner_email: '',
+  password: '',
   status: 'active',
+}
+
+const PHONE_RE = /^\+?[0-9]{9,15}$/
+
+/** Keep digits only; allow a single leading "+". */
+function sanitizePhone(value: string): string {
+  const digits = value.replace(/[^\d]/g, '')
+  return value.trimStart().startsWith('+') ? `+${digits}` : digits
 }
 
 // ─── Business Form Modal ──────────────────────────────────────────────────────
@@ -72,18 +57,17 @@ function BusinessFormModal({
   onSave,
   initial,
   isEdit,
+  isSaving,
 }: {
   isOpen: boolean
   onClose: () => void
   onSave: (data: BusinessFormData) => void
   initial: BusinessFormData
   isEdit: boolean
+  isSaving: boolean
 }) {
   const [form, setForm] = useState<BusinessFormData>(initial)
-  const [errors, setErrors] = useState<Partial<BusinessFormData>>({})
-
-  // Sync form when initial changes (e.g. opening edit modal)
-  useState(() => { setForm(initial); setErrors({}) })
+  const [errors, setErrors] = useState<Partial<Record<keyof BusinessFormData, string>>>({})
 
   const set = (field: keyof BusinessFormData, value: string) => {
     setForm((prev) => ({ ...prev, [field]: value }))
@@ -91,13 +75,19 @@ function BusinessFormModal({
   }
 
   const validate = () => {
-    const e: Partial<BusinessFormData> = {}
+    const e: Partial<Record<keyof BusinessFormData, string>> = {}
     if (!form.business_name.trim()) e.business_name = 'Nama bisnis wajib diisi'
+    if (!form.business_type) e.business_type = 'Tipe bisnis wajib dipilih'
     if (!form.owner_name.trim()) e.owner_name = 'Nama owner wajib diisi'
     if (!form.owner_phone.trim()) e.owner_phone = 'No. telepon wajib diisi'
+    else if (!PHONE_RE.test(form.owner_phone))
+      e.owner_phone = 'No. telepon harus berupa angka (9-15 digit, boleh diawali +)'
     if (!form.owner_email.trim()) e.owner_email = 'Email wajib diisi'
     else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.owner_email))
       e.owner_email = 'Format email tidak valid'
+    if (!isEdit && !form.password) e.password = 'Password wajib diisi'
+    else if (form.password && form.password.length < 8)
+      e.password = 'Password minimal 8 karakter'
     setErrors(e)
     return Object.keys(e).length === 0
   }
@@ -106,9 +96,6 @@ function BusinessFormModal({
     if (validate()) onSave(form)
   }
 
-  // Reset when modal opens
-  const handleOpen = () => { setForm(initial); setErrors({}) }
-
   return (
     <Modal
       isOpen={isOpen}
@@ -116,14 +103,14 @@ function BusinessFormModal({
       title={isEdit ? 'Edit Bisnis' : 'Tambah Bisnis Baru'}
       footer={
         <>
-          <Button variant="secondary" onClick={onClose} size="sm">Batal</Button>
-          <Button onClick={handleSave} size="sm">
-            {isEdit ? 'Simpan Perubahan' : 'Tambah Bisnis'}
+          <Button variant="secondary" onClick={onClose} size="sm" disabled={isSaving}>Batal</Button>
+          <Button onClick={handleSave} size="sm" disabled={isSaving}>
+            {isSaving ? 'Menyimpan...' : isEdit ? 'Simpan Perubahan' : 'Tambah Bisnis'}
           </Button>
         </>
       }
     >
-      <div className="flex flex-col gap-4" onClick={handleOpen as never}>
+      <div className="flex flex-col gap-4">
         <Input
           label="Nama Bisnis"
           placeholder="cth. Warung Makan Bu Sari"
@@ -131,8 +118,18 @@ function BusinessFormModal({
           onChange={(e) => set('business_name', e.target.value)}
           error={errors.business_name}
         />
+        <Select
+          label="Tipe Bisnis"
+          placeholder="Pilih tipe bisnis"
+          options={BUSINESS_TYPES}
+          value={form.business_type}
+          onChange={(e) => set('business_type', e.target.value)}
+          error={errors.business_type}
+        />
         <Input
           label="Nama Owner"
+          type="text"
+          autoComplete="name"
           placeholder="Nama lengkap pemilik"
           value={form.owner_name}
           onChange={(e) => set('owner_name', e.target.value)}
@@ -141,21 +138,43 @@ function BusinessFormModal({
         <Input
           label="No. Telepon Owner"
           type="tel"
-          placeholder="cth. 0812xxxxxxxx"
+          inputMode="tel"
+          autoComplete="tel"
+          maxLength={16}
+          pattern="\+?[0-9]*"
+          placeholder="cth. 081234567890"
           value={form.owner_phone}
-          onChange={(e) => set('owner_phone', e.target.value)}
+          onChange={(e) => set('owner_phone', sanitizePhone(e.target.value))}
           leftIcon={<Phone size={14} />}
           error={errors.owner_phone}
         />
         <Input
           label="Email Owner"
           type="email"
+          inputMode="email"
+          autoComplete="email"
+          autoCapitalize="none"
+          spellCheck={false}
           placeholder="email@contoh.com"
           value={form.owner_email}
-          onChange={(e) => set('owner_email', e.target.value)}
+          onChange={(e) => set('owner_email', e.target.value.trim())}
           leftIcon={<Mail size={14} />}
           error={errors.owner_email}
         />
+        <div className="flex flex-col gap-1.5">
+          <Input
+            label={isEdit ? 'Password Baru (opsional)' : 'Password Owner'}
+            type="password"
+            autoComplete="new-password"
+            placeholder={isEdit ? 'Kosongkan jika tidak diubah' : 'Minimal 8 karakter'}
+            value={form.password}
+            onChange={(e) => set('password', e.target.value)}
+            error={errors.password}
+          />
+          <p className="text-xs text-slate-400">
+            Email dan password ini dipakai owner untuk login.
+          </p>
+        </div>
         <div className="flex flex-col gap-1.5">
           <label className="text-sm font-medium text-slate-700">Status Akun</label>
           <div className="flex gap-2">
@@ -210,7 +229,8 @@ function DeleteModal({
       <p className="text-sm text-slate-600">
         Apakah Anda yakin ingin menghapus bisnis{' '}
         <span className="font-semibold text-slate-900">"{businessName}"</span>?
-        Tindakan ini tidak dapat dibatalkan.
+        Bisnis akan disembunyikan dari daftar dan akun owner tidak bisa login lagi.
+        Data tetap tersimpan di database.
       </p>
     </Modal>
   )
@@ -221,8 +241,27 @@ export default function AdminDashboard() {
   const { user, logout } = useAuthStore()
   const navigate = useNavigate()
 
-  const [businesses, setBusinesses] = useState<Business[]>(INITIAL_BUSINESSES)
+  const [businesses, setBusinesses] = useState<Business[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
+  const [isSaving, setIsSaving] = useState(false)
   const [search, setSearch] = useState('')
+
+  const loadBusinesses = useCallback(async () => {
+    setIsLoading(true)
+    setLoadError(null)
+    try {
+      setBusinesses(await fetchBusinesses())
+    } catch (e) {
+      setLoadError(e instanceof Error ? e.message : 'Terjadi kesalahan')
+    } finally {
+      setIsLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    loadBusinesses()
+  }, [loadBusinesses])
 
   // Modal state
   const [formModal, setFormModal] = useState<{
@@ -241,7 +280,8 @@ export default function AdminDashboard() {
     (b) =>
       b.business_name.toLowerCase().includes(search.toLowerCase()) ||
       b.owner_name.toLowerCase().includes(search.toLowerCase()) ||
-      b.owner_email.toLowerCase().includes(search.toLowerCase()),
+      b.owner_email.toLowerCase().includes(search.toLowerCase()) ||
+      b.business_type.toLowerCase().includes(search.toLowerCase()),
   )
 
   const stats = {
@@ -257,53 +297,55 @@ export default function AdminDashboard() {
   const openEdit = (biz: Business) =>
     setFormModal({ open: true, isEdit: true, target: biz })
 
-  const handleSave = (data: BusinessFormData) => {
-    if (formModal.isEdit && formModal.target) {
-      setBusinesses((prev) =>
-        prev.map((b) =>
-          b.id === formModal.target!.id
-            ? { ...b, ...data, updated_at: new Date().toISOString() }
-            : b,
-        ),
-      )
-      toast.success('Bisnis berhasil diperbarui')
-    } else {
-      const newBiz: Business = {
-        ...data,
-        id: generateId(),
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
+  const closeForm = () => setFormModal({ open: false, isEdit: false, target: null })
+
+  const errMsg = (e: unknown) => (e instanceof Error ? e.message : 'Terjadi kesalahan')
+
+  const handleSave = async (data: BusinessFormData) => {
+    setIsSaving(true)
+    try {
+      if (formModal.isEdit && formModal.target) {
+        const updated = await updateBusiness(formModal.target.id, data)
+        setBusinesses((prev) => prev.map((b) => (b.id === updated.id ? updated : b)))
+        toast.success('Bisnis berhasil diperbarui')
+      } else {
+        const created = await createBusiness(data)
+        setBusinesses((prev) => [created, ...prev])
+        toast.success('Bisnis baru berhasil ditambahkan')
       }
-      setBusinesses((prev) => [newBiz, ...prev])
-      toast.success('Bisnis baru berhasil ditambahkan')
+      closeForm()
+    } catch (e) {
+      toast.error(`Gagal menyimpan bisnis: ${errMsg(e)}`)
+    } finally {
+      setIsSaving(false)
     }
-    setFormModal({ open: false, isEdit: false, target: null })
   }
 
-  const toggleStatus = (id: string) => {
-    setBusinesses((prev) =>
-      prev.map((b) =>
-        b.id === id
-          ? {
-              ...b,
-              status: b.status === 'active' ? 'inactive' : 'active',
-              updated_at: new Date().toISOString(),
-            }
-          : b,
-      ),
-    )
-    const biz = businesses.find((b) => b.id === id)
-    const nextStatus = biz?.status === 'active' ? 'dinonaktifkan' : 'diaktifkan'
-    toast.success(`Bisnis berhasil ${nextStatus}`)
+  const toggleStatus = async (biz: Business) => {
+    try {
+      const updated = await toggleBusinessStatus(biz.id, biz.status)
+      setBusinesses((prev) => prev.map((b) => (b.id === updated.id ? updated : b)))
+      toast.success(
+        `Bisnis berhasil ${updated.status === 'active' ? 'diaktifkan' : 'dinonaktifkan'}`,
+      )
+    } catch (e) {
+      toast.error(`Gagal mengubah status: ${errMsg(e)}`)
+    }
   }
 
-  const confirmDelete = () => {
-    if (deleteModal.target) {
-      setBusinesses((prev) => prev.filter((b) => b.id !== deleteModal.target!.id))
+  const confirmDelete = async () => {
+    const target = deleteModal.target
+    if (!target) return
+    try {
+      await deleteBusiness(target.id)
+      setBusinesses((prev) => prev.filter((b) => b.id !== target.id))
       toast.success('Bisnis berhasil dihapus')
       setDeleteModal({ open: false, target: null })
+    } catch (e) {
+      toast.error(`Gagal menghapus bisnis: ${errMsg(e)}`)
     }
   }
+
 
   const handleLogout = () => {
     logout()
@@ -390,7 +432,18 @@ export default function AdminDashboard() {
 
         {/* Business List */}
         <div className="flex flex-col gap-3">
-          {filtered.length === 0 ? (
+          {isLoading ? (
+            <div className="bg-white rounded-2xl border border-slate-200 py-16 flex items-center justify-center text-sm text-slate-400">
+              Memuat data bisnis...
+            </div>
+          ) : loadError ? (
+            <div className="bg-white rounded-2xl border border-red-200 py-16 flex flex-col items-center gap-3 text-red-500">
+              <p className="text-sm">Gagal memuat data: {loadError}</p>
+              <Button variant="secondary" size="sm" onClick={loadBusinesses}>
+                Coba lagi
+              </Button>
+            </div>
+          ) : filtered.length === 0 ? (
             <div className="bg-white rounded-2xl border border-slate-200 py-16 flex flex-col items-center gap-3 text-slate-400">
               <Users size={40} className="opacity-30" />
               <p className="text-sm">
@@ -421,6 +474,7 @@ export default function AdminDashboard() {
                       <StatusBadge status={biz.status} />
                     </div>
                     <p className="text-sm text-slate-600 mt-0.5">{biz.owner_name}</p>
+                    <p className="text-xs text-indigo-600 font-medium mt-0.5">{biz.business_type}</p>
                     <div className="flex flex-col sm:flex-row sm:items-center gap-0.5 sm:gap-3 mt-1">
                       <span className="flex items-center gap-1 text-xs text-slate-400">
                         <Phone size={11} /> {biz.owner_phone}
@@ -439,7 +493,7 @@ export default function AdminDashboard() {
                 <div className="flex items-center gap-2 sm:flex-col sm:items-end">
                   {/* Toggle status */}
                   <button
-                    onClick={() => toggleStatus(biz.id)}
+                    onClick={() => toggleStatus(biz)}
                     className={`flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg transition-colors ${
                       biz.status === 'active'
                         ? 'text-emerald-600 bg-emerald-50 hover:bg-emerald-100'
@@ -482,16 +536,20 @@ export default function AdminDashboard() {
 
       {/* ── Modals ──────────────────────────────────────────────────────────── */}
       <BusinessFormModal
+        key={`${formModal.open}-${formModal.target?.id ?? 'new'}`}
         isOpen={formModal.open}
         onClose={() => setFormModal({ open: false, isEdit: false, target: null })}
         onSave={handleSave}
+        isSaving={isSaving}
         initial={
           formModal.target
             ? {
                 business_name: formModal.target.business_name,
+                business_type: formModal.target.business_type,
                 owner_name: formModal.target.owner_name,
                 owner_phone: formModal.target.owner_phone,
                 owner_email: formModal.target.owner_email,
+                password: '',
                 status: formModal.target.status,
               }
             : EMPTY_FORM
@@ -505,6 +563,7 @@ export default function AdminDashboard() {
         onConfirm={confirmDelete}
         businessName={deleteModal.target?.business_name ?? ''}
       />
+
     </div>
   )
 }

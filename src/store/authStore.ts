@@ -38,10 +38,35 @@ export const useAuthStore = create<AuthState>()(
             .select('*')
             .eq('id', data.user.id)
             .single()
+
+          if (!profile) {
+            await supabase.auth.signOut()
+            throw new Error('Profil akun tidak ditemukan.')
+          }
+
+          // Superadmin is always active. Everyone else must belong to an active business.
+          if (profile.role !== 'superadmin') {
+            const { data: business } = await supabase
+              .from('businesses')
+              .select('status, deleted_at')
+              .eq('id', profile.business_id)
+              .single()
+            if (!business || business.deleted_at || business.status !== 'active') {
+              await supabase.auth.signOut()
+              throw new Error('Akun bisnis tidak aktif. Hubungi administrator.')
+            }
+          }
+
           set({ user: profile, isLoading: false })
           return profile.role
         } catch (err) {
-          set({ error: (err as Error).message, isLoading: false })
+          const message = (err as Error).message
+          set({
+            error: /banned/i.test(message)
+              ? 'Akun bisnis tidak aktif. Hubungi administrator.'
+              : message,
+            isLoading: false,
+          })
           return null
         }
 

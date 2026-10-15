@@ -15,18 +15,35 @@ export interface UserProfile {
 
 export type BusinessStatus = 'active' | 'inactive'
 
+export const BUSINESS_TYPES = [
+  'Toko Ritel & Minimarket',
+  'Kafe, Restoran, & Coffee Shop',
+  'Usaha Laundry',
+  'Salon & Barbershop',
+  'Kedai Makanan & Minuman (F&B)',
+
+] as const
+
+export type BusinessType = (typeof BUSINESS_TYPES)[number] | (string & {})
+
 export interface Business {
   id: string
   business_name: string
+  business_type: string
   owner_name: string
   owner_phone: string
   owner_email: string
   status: BusinessStatus
   created_at: string
   updated_at: string
+  /** Set when soft-deleted; null/undefined while active. */
+  deleted_at?: string | null
 }
 
-export type BusinessFormData = Omit<Business, 'id' | 'created_at' | 'updated_at'>
+export type BusinessFormData = Omit<Business, 'id' | 'created_at' | 'updated_at' | 'deleted_at'> & {
+  /** Owner login password. Required on create; empty on edit = unchanged. Never stored in Business. */
+  password: string
+}
 
 // ─── POS / Transaction Types ──────────────────────────────────────────────────
 

@@ -26,7 +26,7 @@ export default function LoginPage() {
 
     if (role === 'superadmin') {
       navigate('/admin', { replace: true })
-    } else if (role === 'owner' || role === 'staff' || role === 'kasir') {
+    } else if (role === 'owner' || role === 'staff') {
       navigate('/pos', { replace: true })
     }
   }

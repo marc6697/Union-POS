@@ -8,7 +8,6 @@ const variantMap: Record<BadgeVariant, string> = {
   inactive: 'bg-slate-100 text-slate-500 border-slate-200',
   superadmin: 'bg-violet-100 text-violet-700 border-violet-200',
   owner: 'bg-blue-100 text-blue-700 border-blue-200',
-  kasir: 'bg-amber-100 text-amber-700 border-amber-200',
   staff: 'bg-amber-100 text-amber-700 border-amber-200',
   default: 'bg-slate-100 text-slate-600 border-slate-200',
 }
@@ -18,7 +17,6 @@ const labelMap: Record<BadgeVariant, string> = {
   inactive: 'Nonaktif',
   superadmin: 'Super Admin',
   owner: 'Owner',
-  kasir: 'Kasir',
   staff: 'Staff',
   default: '-',
 }

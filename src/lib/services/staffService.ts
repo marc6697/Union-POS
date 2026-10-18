@@ -81,6 +81,23 @@ export async function fetchStaffByBusiness(
   }
 }
 
+/**
+ * Mengambil seluruh staf aktif non-deleted untuk dropdown staf pelaksana di kasir.
+ */
+export async function fetchActiveStaff(businessId: string): Promise<UserProfile[]> {
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('*')
+    .eq('business_id', businessId)
+    .eq('role', 'staff')
+    .eq('is_active', true)
+    .is('deleted_at', null)
+    .order('full_name', { ascending: true })
+
+  if (error) throw new Error(error.message)
+  return (data ?? []) as UserProfile[]
+}
+
 export async function createStaff(
   businessId: string,
   formData: StaffFormData,

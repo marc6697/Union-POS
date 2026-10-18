@@ -1,6 +1,6 @@
 // ─── User & Auth Types ───────────────────────────────────────────────────────
 
-export type UserRole = 'superadmin' | 'owner' | 'staff' | 'kasir'
+export type UserRole = 'superadmin' | 'owner' | 'staff'
 
 export interface UserProfile {
   id: string
@@ -114,23 +114,111 @@ export interface Product {
   image_url?: string
 }
 
+export type DiscountType = 'percent' | 'amount'
+export type PaymentMethod = 'cash' | 'qris' | 'card'
+export type TransactionStatus = 'completed' | 'voided'
+
 export interface CartItem {
   product: ProductItem
   quantity: number
+  discount_type?: DiscountType | null
+  discount_value?: number
+  staff_ids?: string[]
+}
+
+export interface TransactionItemStaff {
+  id: string
+  transaction_item_id: string
+  business_id: string
+  staff_id?: string | null
+  staff_name_snapshot: string
+  commission_type?: string | null
+  commission_rate?: number | null
+  commission_amount?: number | null
+  created_at: string
+}
+
+export interface TransactionItem {
+  id: string
+  transaction_id: string
+  business_id: string
+  product_id?: string | null
+  product_name: string
+  product_type: ItemType
+  unit?: string | null
+  unit_price: number
+  cost_price: number
+  quantity: number
+  discount_type?: DiscountType | null
+  discount_value?: number
+  discount_amount: number
+  order_discount_share: number
+  line_total: number
+  has_commission: boolean
+  created_at: string
+  staff?: TransactionItemStaff[]
 }
 
 export interface Transaction {
   id: string
-  items: CartItem[]
-  subtotal: number
-  tax: number
-  discount: number
-  total: number
-  payment_method: 'cash' | 'qris' | 'card'
-  status: 'pending' | 'completed' | 'cancelled'
-  created_at: string
-  kasir_id: string
   business_id: string
+  invoice_no: string
+  customer_id?: string | null
+  customer_name_snapshot?: string | null
+  customer_phone_snapshot?: string | null
+  transaction_date: string
+  subtotal: number
+  item_discount_total: number
+  discount_type?: DiscountType | null
+  discount_value?: number
+  discount_amount: number
+  tax_rate_snapshot: number
+  tax_amount: number
+  total: number
+  payment_method: PaymentMethod
+  amount_paid: number
+  change_amount: number
+  status: TransactionStatus
+  voided_at?: string | null
+  voided_by?: string | null
+  void_reason?: string | null
+  created_by: string
+  created_at: string
+  updated_at: string
+
+  items?: TransactionItem[]
+  creator?: {
+    id: string
+    full_name: string
+    role: string
+  } | null
+  customer?: Customer | null
+}
+
+export interface BusinessSettings {
+  business_id: string
+  tax_enabled: boolean
+  tax_rate: number
+  receipt_footer?: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface CreateTransactionItemPayload {
+  product_id: string
+  quantity: number
+  discount_type?: DiscountType | null
+  discount_value?: number
+  staff_ids?: string[]
+}
+
+export interface CreateTransactionPayload {
+  customer_id?: string | null
+  payment_method: PaymentMethod
+  amount_paid?: number
+  discount_type?: DiscountType | null
+  discount_value?: number
+  items: CreateTransactionItemPayload[]
 }
 
 // ─── Customer Types ──────────────────────────────────────────────────────────

@@ -32,8 +32,8 @@ export default function App() {
           <Route path="/admin" element={<AdminDashboard />} />
         </Route>
 
-        {/* Owner, Staff & Kasir */}
-        <Route element={<ProtectedRoute allowedRoles={['owner', 'staff', 'kasir']} />}>
+        {/* Owner & Staff */}
+        <Route element={<ProtectedRoute allowedRoles={['owner', 'staff']} />}>
           <Route path="/pos" element={<POSPage />} />
           <Route path="/pos/products" element={<ProductsPage />} />
           <Route path="/pos/reports" element={<ReportsPage />} />

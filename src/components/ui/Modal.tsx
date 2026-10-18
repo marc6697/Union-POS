@@ -57,13 +57,13 @@ export default function Modal({
       {/* Panel */}
       <div
         className={cn(
-          'relative z-10 w-full bg-white rounded-2xl shadow-2xl',
+          'relative z-10 w-full bg-white rounded-2xl shadow-2xl max-h-[85svh] flex flex-col overflow-hidden',
           'animate-in slide-in-from-bottom-4 sm:slide-in-from-bottom-0 sm:zoom-in-95 duration-200',
           sizeMap[size],
         )}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
+        <div className="shrink-0 flex items-center justify-between px-5 py-4 border-b border-slate-100">
           <h2 className="text-base font-semibold text-slate-900">{title}</h2>
           <button
             onClick={onClose}
@@ -74,11 +74,11 @@ export default function Modal({
         </div>
 
         {/* Content */}
-        <div className="px-5 py-4">{children}</div>
+        <div className="flex-1 min-h-0 overflow-y-auto px-5 py-4">{children}</div>
 
         {/* Footer */}
         {footer && (
-          <div className="flex items-center justify-end gap-2 px-5 py-4 border-t border-slate-100">
+          <div className="shrink-0 flex items-center justify-end gap-2 px-5 py-4 border-t border-slate-100 bg-slate-50/50">
             {footer}
           </div>
         )}

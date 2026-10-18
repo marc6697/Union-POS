@@ -127,10 +127,21 @@ Deno.serve(async (req) => {
         await admin.auth.admin.deleteUser(ownerId)
       }
 
+      let businessCode = f.business_name.toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 20) || 'biz'
+      const { data: codeCheck } = await admin
+        .from('businesses')
+        .select('id')
+        .eq('business_code', businessCode)
+        .maybeSingle()
+      if (codeCheck) {
+        businessCode = `${businessCode}${Math.floor(100 + Math.random() * 900)}`
+      }
+
       const { data: business, error: bizErr } = await admin
         .from('businesses')
         .insert({
           business_name: f.business_name,
+          business_code: businessCode,
           business_type: f.business_type,
           owner_name: f.owner_name,
           owner_phone: f.owner_phone,
@@ -150,6 +161,10 @@ Deno.serve(async (req) => {
         full_name: f.owner_name,
         role: 'owner',
         business_id: business.id,
+        phone: f.owner_phone,
+        position: 'Owner',
+        can_login: true,
+        is_active: f.status === 'active',
       })
       if (profErr) {
         await admin.from('businesses').delete().eq('id', business.id)
@@ -181,7 +196,13 @@ Deno.serve(async (req) => {
         if (authErr) throw new HttpError(400, authErr.message)
         await admin
           .from('profiles')
-          .update({ email: f.owner_email, full_name: f.owner_name })
+          .update({
+            email: f.owner_email,
+            full_name: f.owner_name,
+            phone: f.owner_phone,
+            position: 'Owner',
+            is_active: f.status === 'active',
+          })
           .eq('id', ownerId)
       }
 

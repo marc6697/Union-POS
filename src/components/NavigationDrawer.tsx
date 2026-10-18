@@ -20,6 +20,7 @@ export interface NavItem {
   label: string
   icon: React.ComponentType<{ size?: number; className?: string }>
   path: string
+  ownerOnly?: boolean
 }
 
 export const NAV_ITEMS: NavItem[] = [
@@ -47,6 +48,7 @@ export const NAV_ITEMS: NavItem[] = [
     label: 'Staff',
     icon: UserCheck,
     path: '/pos/staff',
+    ownerOnly: true,
   },
   {
     label: 'Komisi',
@@ -119,13 +121,15 @@ export default function NavigationDrawer({ isOpen, onClose }: NavigationDrawerPr
             </p>
           )}
           <div className="mt-1.5">
-            <Badge variant={user?.role ?? 'kasir'} />
+            <Badge variant={user?.role ?? 'staff'} />
           </div>
         </div>
 
         {/* Navigation Links */}
         <div className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
-          {NAV_ITEMS.map((item) => {
+          {NAV_ITEMS.filter(
+            (item) => !item.ownerOnly || user?.role === 'owner' || user?.role === 'superadmin',
+          ).map((item) => {
             const Icon = item.icon
             const isActive = location.pathname === item.path
             return (

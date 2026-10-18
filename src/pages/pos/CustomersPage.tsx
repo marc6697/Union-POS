@@ -97,6 +97,16 @@ function CustomerFormModal({
     })
   }
 
+  const hasChanges =
+    form.name.trim() !== (initial.name || '').trim() ||
+    form.phone_number.trim() !== (initial.phone_number || '').trim() ||
+    form.email.trim() !== (initial.email || '').trim() ||
+    form.address.trim() !== (initial.address || '').trim() ||
+    form.notes.trim() !== (initial.notes || '').trim() ||
+    form.is_active !== initial.is_active
+
+  const isSubmitDisabled = isSaving || (isEdit && !hasChanges)
+
   return (
     <Modal
       isOpen={isOpen}
@@ -108,7 +118,13 @@ function CustomerFormModal({
           <Button variant="secondary" onClick={onClose} disabled={isSaving} size="sm">
             Batal
           </Button>
-          <Button variant="primary" onClick={handleSubmit} isLoading={isSaving} size="sm">
+          <Button
+            variant="primary"
+            onClick={handleSubmit}
+            isLoading={isSaving}
+            disabled={isSubmitDisabled}
+            size="sm"
+          >
             {isEdit ? 'Simpan Perubahan' : 'Tambah Pelanggan'}
           </Button>
         </>
@@ -396,9 +412,9 @@ export default function CustomersPage() {
     setIsDeleting(true)
     try {
       await deleteCustomer(target.id)
-      setCustomers((prev) => prev.filter((item) => item.id !== target.id))
       toast.success(`Pelanggan "${target.name}" berhasil dihapus`)
       setDeleteModal({ open: false, target: null })
+      await loadCustomers()
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Gagal menghapus pelanggan'
       toast.error(`Gagal: ${msg}`)

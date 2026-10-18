@@ -32,15 +32,19 @@ export default function App() {
           <Route path="/admin" element={<AdminDashboard />} />
         </Route>
 
-        {/* Owner & Kasir */}
-        <Route element={<ProtectedRoute allowedRoles={['owner', 'kasir']} />}>
+        {/* Owner, Staff & Kasir */}
+        <Route element={<ProtectedRoute allowedRoles={['owner', 'staff', 'kasir']} />}>
           <Route path="/pos" element={<POSPage />} />
           <Route path="/pos/products" element={<ProductsPage />} />
           <Route path="/pos/reports" element={<ReportsPage />} />
           <Route path="/pos/customers" element={<CustomersPage />} />
-          <Route path="/pos/staff" element={<StaffPage />} />
           <Route path="/pos/commissions" element={<CommissionsPage />} />
           <Route path="/pos/settings" element={<SettingsPage />} />
+        </Route>
+
+        {/* Owner only */}
+        <Route element={<ProtectedRoute allowedRoles={['owner']} />}>
+          <Route path="/pos/staff" element={<StaffPage />} />
         </Route>
 
         {/* Default redirect to login */}

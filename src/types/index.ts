@@ -1,15 +1,33 @@
 // ─── User & Auth Types ───────────────────────────────────────────────────────
 
-export type UserRole = 'superadmin' | 'owner' | 'kasir'
+export type UserRole = 'superadmin' | 'owner' | 'staff' | 'kasir'
 
 export interface UserProfile {
   id: string
-  email: string
+  email?: string | null
   full_name: string
   role: UserRole
   business_id?: string // null for superadmin
   business_name?: string
-  avatar_url?: string
+  business_code?: string
+  avatar_url?: string | null
+  phone?: string | null
+  position?: string | null
+  can_login?: boolean
+  is_active?: boolean
+  created_at?: string
+  updated_at?: string
+  deleted_at?: string | null
+}
+
+export interface StaffFormData {
+  full_name: string
+  phone: string
+  position: string
+  can_login: boolean
+  email: string
+  password: string
+  is_active: boolean
 }
 
 // ─── Business Types (for Superadmin) ─────────────────────────────────────────
@@ -30,6 +48,7 @@ export type BusinessType = (typeof BUSINESS_TYPES)[number] | (string & {})
 export interface Business {
   id: string
   business_name: string
+  business_code?: string
   business_type: string
   owner_name: string
   owner_phone: string

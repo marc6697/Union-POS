@@ -126,10 +126,13 @@ export async function updateCustomer(
 }
 
 export async function deleteCustomer(id: string): Promise<void> {
-  // Soft delete to protect past transaction records
+  // Soft delete to protect past transaction records and set is_active to false
   const { error } = await supabase
     .from(TABLE)
-    .update({ deleted_at: new Date().toISOString() })
+    .update({
+      deleted_at: new Date().toISOString(),
+      is_active: false,
+    })
     .eq('id', id)
 
   if (error) throw new Error(error.message)

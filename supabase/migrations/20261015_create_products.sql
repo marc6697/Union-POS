@@ -109,13 +109,12 @@ create trigger set_products_updated_at
 -- Isolasi multi-tenant: hanya owner/kasir dari bisnis yang bersangkutan
 alter table public.products enable row level security;
 
--- SELECT: Baca produk dari bisnis sendiri yang belum di-soft-delete
+-- SELECT: Baca produk dari bisnis sendiri (penyaringan deleted_at dilakukan di query aplikasi)
 drop policy if exists "tenant select own products" on public.products;
 create policy "tenant select own products" on public.products
   for select to authenticated
   using (
     business_id = public.current_business_id()
-    and deleted_at is null
   );
 
 -- INSERT: Tambah produk ke bisnis sendiri

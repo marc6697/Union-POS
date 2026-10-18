@@ -48,7 +48,7 @@ export const useAuthStore = create<AuthState>()(
           if (profile.role !== 'superadmin') {
             const { data: business } = await supabase
               .from('businesses')
-              .select('business_name, status, deleted_at')
+              .select('business_name, business_code, status, deleted_at')
               .eq('id', profile.business_id)
               .single()
             if (!business || business.deleted_at || business.status !== 'active') {
@@ -56,16 +56,34 @@ export const useAuthStore = create<AuthState>()(
               throw new Error('Akun bisnis tidak aktif. Hubungi administrator.')
             }
             profile.business_name = business.business_name
+            profile.business_code = business.business_code
+
+            // Staff login validation
+            if (profile.role === 'staff' && profile.can_login === false) {
+              await supabase.auth.signOut()
+              throw new Error('Akun ini tidak memiliki hak akses login.')
+            }
+
+            if (profile.is_active === false || profile.deleted_at) {
+              await supabase.auth.signOut()
+              throw new Error('Akun staff telah dinonaktifkan atau dihapus. Hubungi pemilik bisnis.')
+            }
           }
 
           set({ user: profile, isLoading: false })
           return profile.role
         } catch (err) {
           const message = (err as Error).message
+          let userFriendlyMessage = message
+          if (/invalid login credentials/i.test(message)) {
+            userFriendlyMessage = 'Email atau password salah.'
+          } else if (/banned/i.test(message)) {
+            userFriendlyMessage = email.toLowerCase().includes('@union-pos.id')
+              ? 'Akun staff telah dinonaktifkan atau dihapus. Hubungi pemilik bisnis.'
+              : 'Akun bisnis tidak aktif. Hubungi administrator.'
+          }
           set({
-            error: /banned/i.test(message)
-              ? 'Akun bisnis tidak aktif. Hubungi administrator.'
-              : message,
+            error: userFriendlyMessage,
             isLoading: false,
           })
           return null

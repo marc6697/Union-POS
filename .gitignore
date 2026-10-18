@@ -27,4 +27,8 @@ dist-ssr
 *.sln
 *.sw?
 
+# Supabase
+supabase/.temp/
+.temp/
+
 claude.md

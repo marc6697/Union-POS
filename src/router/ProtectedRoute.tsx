@@ -24,6 +24,7 @@ export default function ProtectedRoute({ allowedRoles }: ProtectedRouteProps) {
     const roleHome: Record<UserRole, string> = {
       superadmin: '/admin',
       owner: '/pos',
+      staff: '/pos',
       kasir: '/pos',
     }
     return <Navigate to={roleHome[user.role]} replace />

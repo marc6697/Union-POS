@@ -62,7 +62,7 @@ export default function POSHeader({
 
         <div className="flex items-center gap-2">
           <div className="flex items-center gap-2">
-            <Badge variant={user?.role ?? 'kasir'} />
+            <Badge variant={user?.role ?? 'staff'} />
             <span className="text-sm text-slate-600 font-medium hidden sm:inline">
               {user?.full_name}
             </span>

@@ -93,6 +93,22 @@ function ProductFormModal({
     onSave({ ...form, sku: finalSku })
   }
 
+  const hasChanges =
+    form.name.trim() !== initial.name.trim() ||
+    form.type !== initial.type ||
+    (!form.sku.trim() ? (initial.sku || '') : form.sku).trim() !== (initial.sku || '').trim() ||
+    form.barcode.trim() !== (initial.barcode || '').trim() ||
+    form.brand.trim() !== (initial.brand || '').trim() ||
+    form.unit.trim() !== (initial.unit || '').trim() ||
+    Number(form.cost_price) !== Number(initial.cost_price) ||
+    Number(form.selling_price) !== Number(initial.selling_price) ||
+    form.track_stock !== initial.track_stock ||
+    Number(form.stock) !== Number(initial.stock) ||
+    form.has_commission !== initial.has_commission ||
+    form.is_active !== initial.is_active
+
+  const isSubmitDisabled = isSaving || (isEdit && !hasChanges)
+
   return (
     <Modal
       isOpen={isOpen}
@@ -104,7 +120,13 @@ function ProductFormModal({
           <Button variant="secondary" onClick={onClose} disabled={isSaving} size="sm">
             Batal
           </Button>
-          <Button variant="primary" onClick={handleSubmit} isLoading={isSaving} size="sm">
+          <Button
+            variant="primary"
+            onClick={handleSubmit}
+            isLoading={isSaving}
+            disabled={isSubmitDisabled}
+            size="sm"
+          >
             {isEdit ? 'Simpan Perubahan' : 'Tambah Item'}
           </Button>
         </>

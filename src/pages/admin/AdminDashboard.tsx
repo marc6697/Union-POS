@@ -58,6 +58,7 @@ function BusinessFormModal({
   initial,
   isEdit,
   isSaving,
+  businessCode,
 }: {
   isOpen: boolean
   onClose: () => void
@@ -65,6 +66,7 @@ function BusinessFormModal({
   initial: BusinessFormData
   isEdit: boolean
   isSaving: boolean
+  businessCode?: string
 }) {
   const [form, setForm] = useState<BusinessFormData>(initial)
   const [errors, setErrors] = useState<Partial<Record<keyof BusinessFormData, string>>>({})
@@ -73,6 +75,17 @@ function BusinessFormModal({
     setForm((prev) => ({ ...prev, [field]: value }))
     if (errors[field]) setErrors((prev) => ({ ...prev, [field]: '' }))
   }
+
+  const hasChanges =
+    form.business_name.trim() !== initial.business_name.trim() ||
+    form.business_type !== initial.business_type ||
+    form.owner_name.trim() !== initial.owner_name.trim() ||
+    form.owner_phone.trim() !== initial.owner_phone.trim() ||
+    form.owner_email.trim() !== initial.owner_email.trim() ||
+    Boolean(form.password.trim()) ||
+    form.status !== initial.status
+
+  const isSubmitDisabled = isSaving || (isEdit && !hasChanges)
 
   const validate = () => {
     const e: Partial<Record<keyof BusinessFormData, string>> = {}
@@ -104,13 +117,21 @@ function BusinessFormModal({
       footer={
         <>
           <Button variant="secondary" onClick={onClose} size="sm" disabled={isSaving}>Batal</Button>
-          <Button onClick={handleSave} size="sm" disabled={isSaving}>
+          <Button onClick={handleSave} size="sm" disabled={isSubmitDisabled}>
             {isSaving ? 'Menyimpan...' : isEdit ? 'Simpan Perubahan' : 'Tambah Bisnis'}
           </Button>
         </>
       }
     >
       <div className="flex flex-col gap-4">
+        {isEdit && (
+          <Input
+            label="Kode Bisnis"
+            value={businessCode || '-'}
+            disabled
+            className="bg-slate-50 cursor-not-allowed text-slate-500 font-mono"
+          />
+        )}
         <Input
           label="Nama Bisnis"
           placeholder="cth. Warung Makan Bu Sari"
@@ -555,6 +576,7 @@ export default function AdminDashboard() {
             : EMPTY_FORM
         }
         isEdit={formModal.isEdit}
+        businessCode={formModal.target?.business_code}
       />
 
       <DeleteModal

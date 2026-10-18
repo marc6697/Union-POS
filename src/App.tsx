@@ -9,6 +9,9 @@ import CustomersPage from './pages/pos/CustomersPage'
 import StaffPage from './pages/pos/StaffPage'
 import CommissionsPage from './pages/pos/CommissionsPage'
 import SettingsPage from './pages/pos/SettingsPage'
+import BusinessProfilePage from './pages/pos/settings/BusinessProfilePage'
+import ReceiptSettingsPage from './pages/pos/settings/ReceiptSettingsPage'
+import TaxSettingsPage from './pages/pos/settings/TaxSettingsPage'
 import TransactionsPage from './pages/pos/TransactionsPage'
 import TransactionDetailPage from './pages/pos/TransactionDetailPage'
 import ProtectedRoute from './router/ProtectedRoute'
@@ -44,6 +47,9 @@ export default function App() {
           <Route path="/pos/customers" element={<CustomersPage />} />
           <Route path="/pos/commissions" element={<CommissionsPage />} />
           <Route path="/pos/settings" element={<SettingsPage />} />
+          <Route path="/pos/settings/profile" element={<BusinessProfilePage />} />
+          <Route path="/pos/settings/receipt" element={<ReceiptSettingsPage />} />
+          <Route path="/pos/settings/tax" element={<TaxSettingsPage />} />
         </Route>
 
         {/* Owner only */}

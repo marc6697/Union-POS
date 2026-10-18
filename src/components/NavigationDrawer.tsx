@@ -137,7 +137,9 @@ export default function NavigationDrawer({ isOpen, onClose }: NavigationDrawerPr
             (item) => !item.ownerOnly || user?.role === 'owner' || user?.role === 'superadmin',
           ).map((item) => {
             const Icon = item.icon
-            const isActive = location.pathname === item.path
+            const isActive =
+              location.pathname === item.path ||
+              (item.path === '/pos/settings' && location.pathname.startsWith('/pos/settings/'))
             return (
               <button
                 key={item.path}

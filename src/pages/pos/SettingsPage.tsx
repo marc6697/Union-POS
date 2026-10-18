@@ -1,52 +1,39 @@
 import { useState, useEffect } from 'react'
-import { Store, Receipt, Printer } from 'lucide-react'
-import { toast } from 'sonner'
+import { useNavigate } from 'react-router-dom'
+import { Store, Printer, Receipt, ChevronRight } from 'lucide-react'
 import POSHeader from '../../components/POSHeader'
 import NavigationDrawer from '../../components/NavigationDrawer'
-import Button from '../../components/ui/Button'
-import Input from '../../components/ui/Input'
 import { useBusinessName } from '../../hooks/useBusinessName'
 import { useAuthStore } from '../../store/authStore'
-import { getBusinessSettings, upsertBusinessSettings } from '../../lib/services/settingsService'
+import { getBusinessSettings } from '../../lib/services/settingsService'
+import { getStoredBluetoothPrinter } from '../../lib/services/bluetoothPrinter'
+import type { BusinessSettings } from '../../types'
 
 export default function SettingsPage() {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const businessName = useBusinessName()
   const { user } = useAuthStore()
+  const navigate = useNavigate()
 
-  const isOwner = user?.role === 'owner'
-  const businessId = user?.business_id
-
+  const [settings, setSettings] = useState<BusinessSettings | null>(null)
   const [isLoading, setIsLoading] = useState(true)
-  const [isSaving, setIsSaving] = useState(false)
-
-  // Pengaturan Pajak (PPN)
-  const [taxEnabled, setTaxEnabled] = useState(false)
-  const [taxRate, setTaxRate] = useState<number | string>(10)
-  const [taxError, setTaxError] = useState<string | null>(null)
-
-  // Pengaturan Struk
-  const [receiptFooter, setReceiptFooter] = useState('')
 
   useEffect(() => {
     let isMounted = true
 
-    async function loadSettings() {
-      if (!businessId) {
+    async function loadSettingsSummary() {
+      if (!user?.business_id) {
         setIsLoading(false)
         return
       }
 
       try {
-        const settings = await getBusinessSettings(businessId)
+        const data = await getBusinessSettings(user.business_id)
         if (isMounted) {
-          setTaxEnabled(settings.tax_enabled)
-          setTaxRate(settings.tax_rate)
-          setReceiptFooter(settings.receipt_footer || '')
+          setSettings(data)
         }
       } catch (err) {
-        const msg = err instanceof Error ? err.message : 'Gagal memuat pengaturan'
-        toast.error(msg)
+        console.error('Gagal memuat ringkasan pengaturan:', err)
       } finally {
         if (isMounted) {
           setIsLoading(false)
@@ -54,47 +41,49 @@ export default function SettingsPage() {
       }
     }
 
-    loadSettings()
+    loadSettingsSummary()
 
     return () => {
       isMounted = false
     }
-  }, [businessId])
+  }, [user?.business_id])
 
-  const handleSaveSettings = async () => {
-    if (!businessId) return
-    if (!isOwner) {
-      toast.error('Hanya pemilik usaha yang berhak mengubah pengaturan.')
-      return
-    }
-
-    if (taxEnabled) {
-      const parsedRate = Number(taxRate)
-      if (isNaN(parsedRate) || parsedRate < 0 || parsedRate > 100) {
-        setTaxError('Persentase pajak harus berupa angka antara 0 dan 100.')
-        return
-      }
-    }
-
-    try {
-      setIsSaving(true)
-      setTaxError(null)
-
-      const finalRate = taxEnabled ? Number(taxRate) : (Number(taxRate) || 0)
-      await upsertBusinessSettings(businessId, {
-        tax_enabled: taxEnabled,
-        tax_rate: finalRate,
-        receipt_footer: receiptFooter.trim() || null,
-      })
-
-      toast.success('Pengaturan berhasil disimpan')
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Gagal menyimpan pengaturan'
-      toast.error(msg)
-    } finally {
-      setIsSaving(false)
-    }
-  }
+  const subMenus = [
+    {
+      id: 'profile',
+      title: 'Profil Bisnis',
+      description: 'Informasi nama toko, nomor kontak, jenis usaha, dan akun pemilik',
+      icon: Store,
+      iconColor: 'bg-indigo-50 text-indigo-600',
+      path: '/pos/settings/profile',
+      badge: businessName || user?.business_name || 'Bisnis Anda',
+    },
+    {
+      id: 'receipt',
+      title: 'Struk Printer & Kasir',
+      description: 'Konfigurasi format cetak struk thermal, catatan footer, dan printer kasir',
+      icon: Printer,
+      iconColor: 'bg-emerald-50 text-emerald-600',
+      path: '/pos/settings/receipt',
+      badge: getStoredBluetoothPrinter()?.name || (settings?.receipt_footer ? 'Footer Kustom' : 'Thermal 80mm'),
+    },
+    {
+      id: 'tax',
+      title: 'Pajak (PB1 / PPN)',
+      description: 'Aturan pemungutan pajak transaksi kasir dan persentase tarif pajak',
+      icon: Receipt,
+      iconColor: 'bg-amber-50 text-amber-600',
+      path: '/pos/settings/tax',
+      badge: isLoading
+        ? 'Memuat...'
+        : settings?.tax_enabled
+          ? `Aktif (${settings.tax_rate}%)`
+          : 'Nonaktif',
+      badgeColor: settings?.tax_enabled
+        ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+        : 'bg-slate-100 text-slate-600 border-slate-200',
+    },
+  ]
 
   return (
     <div className="min-h-svh bg-slate-100 flex flex-col">
@@ -109,142 +98,55 @@ export default function SettingsPage() {
       <main className="flex-1 max-w-4xl mx-auto w-full p-4 sm:p-6 space-y-6">
         <div>
           <h1 className="text-xl font-bold text-slate-900">Pengaturan Toko & POS</h1>
-          <p className="text-sm text-slate-500">Sesuaikan profil outlet, printer struk, dan preferensi aplikasi</p>
+          <p className="text-sm text-slate-500">
+            Pilih sub menu pengaturan di bawah untuk mengelola profil usaha, printer struk kasir, dan pajak
+          </p>
         </div>
 
-        {/* Setting Groups */}
-        <div className="space-y-4">
-          {/* Outlet Info */}
-          <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs space-y-4">
-            <div className="flex items-center gap-3 pb-3 border-b border-slate-100">
-              <div className="w-9 h-9 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
-                <Store size={18} />
-              </div>
-              <div>
-                <h2 className="text-base font-semibold text-slate-900">Profil Bisnis</h2>
-                <p className="text-xs text-slate-500">Informasi nama toko dan kontak usaha</p>
-              </div>
-            </div>
+        {/* Sub Menu List */}
+        <div className="space-y-3">
+          {subMenus.map((menu) => {
+            const Icon = menu.icon
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <Input
-                label="Nama Usaha / Bisnis"
-                defaultValue={businessName || 'Bisnis Anda'}
-                disabled
-              />
-              <Input
-                label="Akun Pemilik (Email)"
-                defaultValue={user?.email || ''}
-                disabled
-              />
-            </div>
-          </div>
-
-          {/* Struk & Printer */}
-          <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs space-y-4">
-            <div className="flex items-center gap-3 pb-3 border-b border-slate-100">
-              <div className="w-9 h-9 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
-                <Printer size={18} />
-              </div>
-              <div>
-                <h2 className="text-base font-semibold text-slate-900">Struk & Printer Kasir</h2>
-                <p className="text-xs text-slate-500">Konfigurasi printer thermal Bluetooth / USB & footer struk</p>
-              </div>
-            </div>
-
-            <div className="space-y-3">
-              <Input
-                label="Catatan Footer Struk"
-                placeholder="Contoh: Terima kasih atas kunjungan Anda!"
-                value={receiptFooter}
-                onChange={(e) => setReceiptFooter(e.target.value)}
-                disabled={!isOwner || isSaving || isLoading}
-              />
-              <div className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-100">
-                <div>
-                  <p className="text-sm font-medium text-slate-800">Cetak Otomatis Setelah Transaksi</p>
-                  <p className="text-xs text-slate-500">Langsung kirim perintah print saat transaksi selesai</p>
-                </div>
-                <input
-                  type="checkbox"
-                  defaultChecked
-                  className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500"
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Pajak & Service (Hanya tampil untuk Owner) */}
-          {isOwner && (
-            <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs space-y-4">
-              <div className="flex items-center gap-3 pb-3 border-b border-slate-100">
-                <div className="w-9 h-9 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
-                  <Receipt size={18} />
-                </div>
-                <div>
-                  <h2 className="text-base font-semibold text-slate-900">Pajak (PB1/PPN)</h2>
-                  <p className="text-xs text-slate-500">Aturan pemungutan pajak pada nota transaksi</p>
-                </div>
-              </div>
-
-              <div className="space-y-4">
-                <div className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-100">
-                  <div>
-                    <p className="text-sm font-medium text-slate-800">Aktifkan PPN</p>
-                    <p className="text-xs text-slate-500">Tambahkan pemungutan pajak pada setiap transaksi POS</p>
-                  </div>
-                  <input
-                    type="checkbox"
-                    checked={taxEnabled}
-                    onChange={(e) => {
-                      setTaxEnabled(e.target.checked)
-                      setTaxError(null)
-                    }}
-                    disabled={isSaving || isLoading}
-                    className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed"
-                  />
-                </div>
-
-                {taxEnabled && (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <Input
-                      label="Persentase Pajak (%)"
-                      type="number"
-                      min={0}
-                      max={100}
-                      step="0.1"
-                      value={taxRate}
-                      onChange={(e) => {
-                        setTaxRate(e.target.value)
-                        setTaxError(null)
-                      }}
-                      error={taxError || undefined}
-                      disabled={isSaving || isLoading}
-                      placeholder="Contoh: 11"
-                    />
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* Action button atau pesan hak akses */}
-          {isOwner ? (
-            <div className="flex justify-end pt-2">
-              <Button
-                variant="primary"
-                onClick={handleSaveSettings}
-                isLoading={isSaving}
-                disabled={isLoading}
+            return (
+              <div
+                key={menu.id}
+                onClick={() => navigate(menu.path)}
+                className="group bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-xs hover:border-indigo-200 hover:shadow-md transition-all cursor-pointer flex items-center justify-between gap-4"
               >
-                Simpan Pengaturan
-              </Button>
-            </div>
-          ) : (
-            <div className="bg-amber-50 border border-amber-200 text-amber-800 text-xs px-4 py-3 rounded-xl">
-              Mode baca saja: Hanya pemilik usaha (Owner) yang memiliki izin untuk mengubah pengaturan outlet dan PPN.
-            </div>
-          )}
+                <div className="flex items-center gap-4 min-w-0">
+                  <div
+                    className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 transition-transform group-hover:scale-105 ${menu.iconColor}`}
+                  >
+                    <Icon size={24} />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2.5 flex-wrap">
+                      <h2 className="text-base font-semibold text-slate-900 group-hover:text-indigo-600 transition-colors">
+                        {menu.title}
+                      </h2>
+                      {menu.badge && (
+                        <span
+                          className={`text-xs px-2.5 py-0.5 rounded-full font-medium border max-w-[160px] truncate ${
+                            menu.badgeColor || 'bg-slate-50 text-slate-600 border-slate-200'
+                          }`}
+                        >
+                          {menu.badge}
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-xs sm:text-sm text-slate-500 mt-1 line-clamp-1">
+                      {menu.description}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 group-hover:text-indigo-600 group-hover:bg-indigo-50 transition-colors shrink-0">
+                  <ChevronRight size={20} />
+                </div>
+              </div>
+            )
+          })}
         </div>
       </main>
     </div>

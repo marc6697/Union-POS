@@ -13,6 +13,7 @@ import { toast } from 'sonner'
 import { useAuthStore } from '../../store/authStore'
 import Button from '../../components/ui/Button'
 import Input from '../../components/ui/Input'
+import Modal from '../../components/ui/Modal'
 import { formatIDR } from '../../lib/utils'
 import type {
   ProductItem,
@@ -22,6 +23,7 @@ import type {
   DiscountType,
   PaymentMethod,
   CreateTransactionPayload,
+  Transaction,
 } from '../../types'
 import { fetchActiveProductsByBusiness } from '../../lib/services/productService'
 import { fetchActiveStaff } from '../../lib/services/staffService'
@@ -32,6 +34,8 @@ import POSHeader from '../../components/POSHeader'
 import NavigationDrawer from '../../components/NavigationDrawer'
 import { useBusinessName } from '../../hooks/useBusinessName'
 import CartPanel from './components/CartPanel'
+import SuccessPaymentModal from './components/SuccessPaymentModal'
+import ReceiptModal from './components/ReceiptModal'
 
 const CATEGORIES = ['Semua', 'Barang', 'Jasa'] as const
 
@@ -51,6 +55,7 @@ export default function POSPage() {
   // ── State Pengaturan Toko & Staf ──────────────────────────────────────────
   const [taxEnabled, setTaxEnabled] = useState(false)
   const [taxRate, setTaxRate] = useState(10)
+  const [receiptFooter, setReceiptFooter] = useState<string | null>(null)
   const [staffList, setStaffList] = useState<UserProfile[]>([])
 
   // ── State Keranjang & Transaksi ───────────────────────────────────────────
@@ -65,6 +70,10 @@ export default function POSPage() {
   const [showCart, setShowCart] = useState(false)
   const [isProcessing, setIsProcessing] = useState(false)
   const [isMenuOpen, setIsMenuOpen] = useState(false)
+  const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false)
+  const [completedTransaction, setCompletedTransaction] = useState<Transaction | null>(null)
+  const [isSuccessModalOpen, setIsSuccessModalOpen] = useState(false)
+  const [isReceiptModalOpen, setIsReceiptModalOpen] = useState(false)
 
   // ── Load Data Awal (Produk, Staf, Settings) ───────────────────────────────
   const loadProducts = useCallback(async () => {
@@ -105,6 +114,7 @@ export default function POSPage() {
         if (isMounted) {
           setTaxEnabled(settingsData.tax_enabled)
           setTaxRate(settingsData.tax_rate)
+          setReceiptFooter(settingsData.receipt_footer ?? null)
           setStaffList(staffData)
         }
       } catch (err) {
@@ -186,8 +196,8 @@ export default function POSPage() {
   }
 
   const updateQty = (productId: string, delta: number) => {
-    setCart((prev) =>
-      prev
+    setCart((prev) => {
+      const next = prev
         .map((c) => {
           if (c.product.id === productId) {
             const newQty = c.quantity + delta
@@ -204,12 +214,34 @@ export default function POSPage() {
           }
           return c
         })
-        .filter((c) => c.quantity > 0),
-    )
+        .filter((c) => c.quantity > 0)
+
+      // Jika seluruh keranjang kosong, bersihkan diskon nota & data transaksi
+      if (next.length === 0) {
+        setOrderDiscountValue(0)
+        setOrderDiscountType('percent')
+        setSelectedCustomer(null)
+        setCashAmountPaid(0)
+      }
+
+      return next
+    })
   }
 
   const removeFromCart = (productId: string) => {
-    setCart((prev) => prev.filter((c) => c.product.id !== productId))
+    setCart((prev) => {
+      const next = prev.filter((c) => c.product.id !== productId)
+
+      // Jika seluruh item telah dihapus, reset diskon nota dan data transaksi
+      if (next.length === 0) {
+        setOrderDiscountValue(0)
+        setOrderDiscountType('percent')
+        setSelectedCustomer(null)
+        setCashAmountPaid(0)
+      }
+
+      return next
+    })
   }
 
   const updateItemDiscount = (
@@ -240,12 +272,18 @@ export default function POSPage() {
     setCart([])
     setSelectedCustomer(null)
     setOrderDiscountValue(0)
+    setOrderDiscountType('percent')
     setCashAmountPaid(0)
     setShowCart(false)
   }
 
-  // ── Checkout Process ──────────────────────────────────────────────────────
-  const handleCheckout = async () => {
+  // ── Checkout: Buka Modal Konfirmasi ───────────────────────────────────────
+  const handleCheckout = () => {
+    if (!businessId) {
+      toast.error('Data bisnis tidak valid. Silakan muat ulang halaman.')
+      return
+    }
+
     if (cart.length === 0) {
       toast.error('Keranjang belanja masih kosong.')
       return
@@ -255,6 +293,13 @@ export default function POSPage() {
       toast.error('Uang pembayaran tunai kurang dari total tagihan.')
       return
     }
+
+    setIsConfirmModalOpen(true)
+  }
+
+  // ── Eksekusi Pembayaran setelah Konfirmasi "Ya, Sudah Benar" ───────────────
+  const executeCheckout = async () => {
+    if (!businessId) return
 
     try {
       setIsProcessing(true)
@@ -276,14 +321,14 @@ export default function POSPage() {
 
       const tx = await createTransaction(payload)
 
-      toast.success(`Transaksi berhasil! (${tx.invoice_no})`, {
-        description: `Total: ${formatIDR(tx.total)} · Metode: ${tx.payment_method.toUpperCase()}`,
-        duration: 4000,
-      })
-
+      setIsConfirmModalOpen(false)
+      setShowCart(false)
       clearCart()
-      // Refresh stok produk di katalog secara real-time
       await loadProducts()
+
+      // Buka modal sukses pembayaran langsung di halaman POS
+      setCompletedTransaction(tx)
+      setIsSuccessModalOpen(true)
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Terjadi kesalahan saat memproses transaksi.'
       toast.error(msg)
@@ -524,6 +569,14 @@ export default function POSPage() {
             onClick={() => setShowCart(false)}
           />
           <div className="absolute inset-x-0 bottom-0 bg-white rounded-t-2xl h-[92svh] flex flex-col shadow-2xl overflow-hidden">
+            {/* Drag Handle Bar untuk tutup sheet */}
+            <div
+              className="w-full pt-2.5 pb-1 bg-white flex justify-center cursor-pointer select-none shrink-0"
+              onClick={() => setShowCart(false)}
+            >
+              <div className="w-10 h-1 bg-slate-300 rounded-full" />
+            </div>
+
             <CartPanel
               cart={cart}
               businessId={businessId || ''}
@@ -577,6 +630,117 @@ export default function POSPage() {
           </button>
         </div>
       )}
+
+      {/* ── Modal Konfirmasi Pembayaran ───────────────────────────────────────── */}
+      <Modal
+        isOpen={isConfirmModalOpen}
+        onClose={() => !isProcessing && setIsConfirmModalOpen(false)}
+        title="Konfirmasi Pembayaran"
+        size="sm"
+        footer={
+          <div className="flex items-center justify-between w-full">
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              onClick={() => setIsConfirmModalOpen(false)}
+              disabled={isProcessing}
+            >
+              Periksa Kembali
+            </Button>
+            <Button
+              type="button"
+              variant="primary"
+              size="sm"
+              onClick={executeCheckout}
+              isLoading={isProcessing}
+            >
+              Ya, Sudah Benar
+            </Button>
+          </div>
+        }
+      >
+        <div className="space-y-3">
+          <div className="p-3 bg-indigo-50/70 border border-indigo-100 rounded-xl text-center">
+            <p className="text-sm font-bold text-slate-800">
+              Apakah data yang dimasukkan sudah benar?
+            </p>
+            <p className="text-xs text-slate-500 mt-1">
+              Periksa kembali pelanggan, jumlah item, dan nominal tagihan sebelum memproses transaksi.
+            </p>
+          </div>
+
+          <div className="p-3 bg-slate-50 rounded-xl border border-slate-200/80 space-y-2 text-xs">
+            <div className="flex justify-between text-slate-600">
+              <span>Pelanggan</span>
+              <span className="font-semibold text-slate-800 truncate max-w-[150px]">
+                {selectedCustomer ? selectedCustomer.name : 'Pelanggan Umum (Walk-in)'}
+              </span>
+            </div>
+
+            <div className="flex justify-between text-slate-600">
+              <span>Total Item</span>
+              <span className="font-semibold text-slate-800">{totalItems} pcs</span>
+            </div>
+
+            <div className="flex justify-between text-slate-600">
+              <span>Metode Bayar</span>
+              <span className="font-bold text-slate-800 uppercase">{paymentMethod}</span>
+            </div>
+
+            {paymentMethod === 'cash' && (
+              <>
+                <div className="flex justify-between text-slate-600">
+                  <span>Uang Diterima</span>
+                  <span className="font-semibold text-slate-800">{formatIDR(cashAmountPaid)}</span>
+                </div>
+                <div className="flex justify-between text-slate-600">
+                  <span>Kembalian</span>
+                  <span className="font-bold text-emerald-600">
+                    {formatIDR(Math.max(0, cashAmountPaid - preview.total))}
+                  </span>
+                </div>
+              </>
+            )}
+
+            {preview.item_discount_total > 0 && (
+              <div className="flex justify-between text-amber-600">
+                <span>Diskon Item</span>
+                <span className="font-semibold">-{formatIDR(preview.item_discount_total)}</span>
+              </div>
+            )}
+
+            {preview.order_discount_amount > 0 && (
+              <div className="flex justify-between text-amber-600">
+                <span>Diskon Nota</span>
+                <span className="font-semibold">-{formatIDR(preview.order_discount_amount)}</span>
+              </div>
+            )}
+
+            <div className="flex justify-between font-bold text-slate-900 pt-2 border-t border-slate-200 items-baseline">
+              <span>Total Tagihan</span>
+              <span className="text-base font-black text-indigo-700">{formatIDR(preview.total)}</span>
+            </div>
+          </div>
+        </div>
+      </Modal>
+
+      {/* ── Modal Sukses Pembayaran ─────────────────────────────────────────── */}
+      <SuccessPaymentModal
+        isOpen={isSuccessModalOpen}
+        onClose={() => setIsSuccessModalOpen(false)}
+        transaction={completedTransaction}
+        onPrintReceipt={() => setIsReceiptModalOpen(true)}
+      />
+
+      {/* ── Modal Cetak Struk 80mm ──────────────────────────────────────────── */}
+      <ReceiptModal
+        isOpen={isReceiptModalOpen}
+        onClose={() => setIsReceiptModalOpen(false)}
+        transaction={completedTransaction}
+        businessName={businessName}
+        receiptFooter={receiptFooter}
+      />
 
       {/* ── Navigation Drawer ────────────────────────────────────────────────── */}
       <NavigationDrawer isOpen={isMenuOpen} onClose={() => setIsMenuOpen(false)} />

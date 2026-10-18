@@ -9,6 +9,8 @@ import CustomersPage from './pages/pos/CustomersPage'
 import StaffPage from './pages/pos/StaffPage'
 import CommissionsPage from './pages/pos/CommissionsPage'
 import SettingsPage from './pages/pos/SettingsPage'
+import TransactionsPage from './pages/pos/TransactionsPage'
+import TransactionDetailPage from './pages/pos/TransactionDetailPage'
 import ProtectedRoute from './router/ProtectedRoute'
 
 export default function App() {
@@ -35,6 +37,8 @@ export default function App() {
         {/* Owner & Staff */}
         <Route element={<ProtectedRoute allowedRoles={['owner', 'staff']} />}>
           <Route path="/pos" element={<POSPage />} />
+          <Route path="/pos/transactions" element={<TransactionsPage />} />
+          <Route path="/pos/transactions/:id" element={<TransactionDetailPage />} />
           <Route path="/pos/products" element={<ProductsPage />} />
           <Route path="/pos/reports" element={<ReportsPage />} />
           <Route path="/pos/customers" element={<CustomersPage />} />

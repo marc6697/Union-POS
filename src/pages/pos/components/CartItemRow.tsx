@@ -10,6 +10,7 @@ interface CartItemRowProps {
   onOpenEdit: () => void
   lineCalculation?: {
     discount_amount: number
+    after_item?: number
     line_total: number
   }
 }
@@ -33,7 +34,12 @@ export default function CartItemRow({
       : formatIDR(item.discount_value ?? 0)
 
   const originalSubtotal = Number(item.product.selling_price) * item.quantity
-  const finalTotal = lineCalculation?.line_total ?? originalSubtotal
+  // Gunakan harga setelah diskon item (after_item), BUKAN line_total yang sudah dipotong porsi diskon nota
+  const finalTotal =
+    lineCalculation?.after_item ??
+    (lineCalculation?.discount_amount
+      ? Math.max(0, originalSubtotal - lineCalculation.discount_amount)
+      : originalSubtotal)
 
   return (
     <div className="p-3 bg-white rounded-xl border border-slate-200/80 shadow-2xs hover:border-slate-300 transition-all space-y-2">

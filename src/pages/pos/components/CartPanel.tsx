@@ -9,6 +9,7 @@ import {
   Tag,
   CheckCircle2,
   X,
+  ArrowLeft,
 } from 'lucide-react'
 import type {
   CartItem,
@@ -22,6 +23,7 @@ import Button from '../../../components/ui/Button'
 import CartItemRow from './CartItemRow'
 import CustomerPickerModal from './CustomerPickerModal'
 import EditCartItemModal from './EditCartItemModal'
+import OrderDiscountModal from './OrderDiscountModal'
 import { calculateTransactionPreview } from '../../../lib/transactionCalculation'
 
 const PAYMENT_METHODS = [
@@ -82,7 +84,7 @@ export default function CartPanel({
   onClose,
 }: CartPanelProps) {
   const [isCustomerModalOpen, setIsCustomerModalOpen] = useState(false)
-  const [showOrderDiscount, setShowOrderDiscount] = useState(false)
+  const [isOrderDiscountModalOpen, setIsOrderDiscountModalOpen] = useState(false)
   const [editingItem, setEditingItem] = useState<CartItem | null>(null)
 
   // 1. Preview calculation mirroring Section 2.6
@@ -107,12 +109,25 @@ export default function CartPanel({
   return (
     <div className="flex flex-col h-full bg-slate-50/60 select-none overflow-hidden">
       {/* ── Cart Top Header (Fixed at top) ──────────────────────────────────── */}
-      <div className="shrink-0 flex items-center justify-between px-4 py-3 bg-white border-b border-slate-200 z-10">
+      <div className="shrink-0 flex items-center justify-between px-3 sm:px-4 py-2.5 sm:py-3 bg-white border-b border-slate-200 z-10">
         <div className="flex items-center gap-2">
-          <div className="w-7 h-7 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center">
+          {onClose && (
+            <button
+              type="button"
+              onClick={onClose}
+              className="sm:hidden flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-slate-100 active:bg-slate-200 text-slate-700 font-bold text-xs transition-colors cursor-pointer"
+              aria-label="Kembali ke katalog"
+            >
+              <ArrowLeft size={16} />
+              <span>Kembali</span>
+            </button>
+          )}
+
+          <div className="hidden sm:flex w-7 h-7 rounded-lg bg-indigo-50 text-indigo-600 items-center justify-center">
             <ShoppingCart size={16} />
           </div>
-          <div>
+
+          <div className="flex items-center">
             <span className="text-sm font-bold text-slate-800">Keranjang</span>
             {cart.length > 0 && (
               <span className="ml-2 bg-indigo-100 text-indigo-700 text-[11px] font-bold px-2 py-0.5 rounded-full">
@@ -122,12 +137,12 @@ export default function CartPanel({
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5">
           {cart.length > 0 && (
             <button
               type="button"
               onClick={onClear}
-              className="text-xs font-semibold text-red-500 hover:text-red-700 transition-colors cursor-pointer"
+              className="text-xs font-semibold text-red-500 hover:text-red-700 hover:bg-red-50 px-2 py-1 rounded-lg transition-colors cursor-pointer"
             >
               Kosongkan
             </button>
@@ -136,7 +151,7 @@ export default function CartPanel({
             <button
               type="button"
               onClick={onClose}
-              className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
+              className="w-8 h-8 flex items-center justify-center rounded-xl bg-slate-100 hover:bg-slate-200 active:bg-slate-300 text-slate-600 transition-colors cursor-pointer"
               aria-label="Tutup keranjang"
             >
               <X size={18} />
@@ -215,6 +230,18 @@ export default function CartPanel({
               <p className="text-[11px] text-center text-slate-400 max-w-[200px]">
                 Ketuk produk atau layanan pada katalog untuk menambahkan item
               </p>
+              {onClose && (
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  onClick={onClose}
+                  className="mt-2 text-xs font-bold sm:hidden"
+                  leftIcon={<ArrowLeft size={14} />}
+                >
+                  Pilih Produk
+                </Button>
+              )}
             </div>
           ) : (
             <div className="space-y-2">
@@ -242,70 +269,17 @@ export default function CartPanel({
               </span>
               <button
                 type="button"
-                onClick={() => setShowOrderDiscount(!showOrderDiscount)}
+                onClick={() => setIsOrderDiscountModalOpen(true)}
                 className="inline-flex items-center gap-1 text-[11px] font-bold text-indigo-600 hover:text-indigo-700 cursor-pointer"
               >
                 <Tag size={11} />
                 <span>
-                  {orderDiscountValue > 0 ? 'Edit Diskon Nota' : '+ Diskon Nota'}
+                  {orderDiscountValue > 0 ? 'Atur Diskon Nota' : '+ Diskon Nota'}
                 </span>
               </button>
             </div>
 
             <div className="p-3 bg-white rounded-xl border border-slate-200/90 shadow-2xs space-y-2 text-xs">
-              {/* Form Input Diskon Nota */}
-              {showOrderDiscount && (
-                <div className="p-2 bg-slate-50 rounded-lg border border-slate-200 flex items-center gap-2 mb-1.5">
-                  <div className="flex bg-slate-200/70 p-0.5 rounded-md shrink-0">
-                    <button
-                      type="button"
-                      onClick={() => onUpdateOrderDiscount('percent', orderDiscountValue)}
-                      className={`px-2 py-0.5 rounded text-[10px] font-bold transition-all ${
-                        orderDiscountType === 'percent'
-                          ? 'bg-indigo-600 text-white shadow-2xs'
-                          : 'text-slate-600 hover:text-slate-900'
-                      }`}
-                    >
-                      %
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => onUpdateOrderDiscount('amount', orderDiscountValue)}
-                      className={`px-2 py-0.5 rounded text-[10px] font-bold transition-all ${
-                        orderDiscountType === 'amount'
-                          ? 'bg-indigo-600 text-white shadow-2xs'
-                          : 'text-slate-600 hover:text-slate-900'
-                      }`}
-                    >
-                      Rp
-                    </button>
-                  </div>
-
-                  <input
-                    type="number"
-                    min={0}
-                    max={orderDiscountType === 'percent' ? 100 : undefined}
-                    placeholder={orderDiscountType === 'percent' ? 'Diskon 0 - 100%' : 'Nominal Rp'}
-                    value={orderDiscountValue === 0 ? '' : orderDiscountValue}
-                    onChange={(e) => {
-                      const val = parseFloat(e.target.value) || 0
-                      onUpdateOrderDiscount(orderDiscountType || 'percent', val)
-                    }}
-                    className="flex-1 bg-transparent border-0 px-1 py-0.5 text-xs text-slate-900 focus:outline-none"
-                  />
-
-                  {orderDiscountValue > 0 && (
-                    <button
-                      type="button"
-                      onClick={() => onUpdateOrderDiscount(null, 0)}
-                      className="text-[11px] text-red-500 hover:text-red-700 font-medium px-1 cursor-pointer"
-                    >
-                      Hapus
-                    </button>
-                  )}
-                </div>
-              )}
-
               {/* Rincian per Pos */}
               <div className="space-y-1.5">
                 <div className="flex justify-between text-slate-600">
@@ -321,9 +295,23 @@ export default function CartPanel({
                 )}
 
                 {calcResult.order_discount_amount > 0 && (
-                  <div className="flex justify-between text-amber-600">
-                    <span>Diskon Nota</span>
-                    <span className="font-semibold">-{formatIDR(calcResult.order_discount_amount)}</span>
+                  <div className="flex justify-between items-center text-amber-600">
+                    <div className="flex items-center gap-1.5">
+                      <span>Diskon Nota</span>
+                      <span className="text-[10px] bg-amber-100 text-amber-800 font-bold px-1.5 py-0.5 rounded">
+                        {orderDiscountType === 'percent' ? `${orderDiscountValue}%` : 'Nominal'}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="font-semibold">-{formatIDR(calcResult.order_discount_amount)}</span>
+                      <button
+                        type="button"
+                        onClick={() => setIsOrderDiscountModalOpen(true)}
+                        className="text-[11px] text-indigo-600 hover:text-indigo-800 font-bold underline cursor-pointer"
+                      >
+                        Ubah
+                      </button>
+                    </div>
                   </div>
                 )}
 
@@ -484,6 +472,16 @@ export default function CartPanel({
           onUpdateItemStaff(editingItem.product.id, staffId)
           onUpdateItemDiscount(editingItem.product.id, discType, discVal)
         }}
+      />
+
+      {/* Modal Atur Diskon Nota */}
+      <OrderDiscountModal
+        isOpen={isOrderDiscountModalOpen}
+        onClose={() => setIsOrderDiscountModalOpen(false)}
+        subtotal={calcResult.subtotal - calcResult.item_discount_total}
+        currentDiscountType={orderDiscountType}
+        currentDiscountValue={orderDiscountValue}
+        onApply={(type, val) => onUpdateOrderDiscount(type, val)}
       />
     </div>
   )

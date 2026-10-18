@@ -2,6 +2,7 @@ import { useNavigate, useLocation } from 'react-router-dom'
 import {
   ShoppingBag,
   ReceiptText,
+  History,
   Package,
   BarChart3,
   Users,
@@ -28,6 +29,11 @@ export const NAV_ITEMS: NavItem[] = [
     label: 'Transaksi',
     icon: ReceiptText,
     path: '/pos',
+  },
+  {
+    label: 'Riwayat Transaksi',
+    icon: History,
+    path: '/pos/transactions',
   },
   {
     label: 'Barang dan Jasa',
